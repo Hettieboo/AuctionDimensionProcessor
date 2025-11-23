@@ -1,180 +1,96 @@
-# -*- coding: utf-8 -*-
 import streamlit as st
 import pandas as pd
-import numpy as np
-import re
-from typing import List, Dict, Optional, Tuple
-from io import BytesIO
+from final_piasa_extraction_script import AuctionDimensionProcessor
 
-# -----------------------------------------
-# AuctionDimensionProcessor Class
-# -----------------------------------------
-class AuctionDimensionProcessor:
-    def __init__(self):
-        self.multiples_keywords = {
-            "paire": 2, "deux": 2, "trois": 3, "quatre": 4,
-            "cinq": 5, "six": 6, "sept": 7, "huit": 8,
-            "neuf": 9, "dix": 10, "onze": 11, "douze": 12,
-            "treize": 13, "quatorze": 14, "quinze": 15,
-            "seize": 16, "dix-sept": 17, "dix-huit": 18,
-            "dix-neuf": 19, "vingt": 20
-        }
+st.set_page_config(page_title="📦 Piasa Auction Dimension Processor", layout="wide")
 
-        self.reclassified_lots = []
+st.title("📦 Piasa Auction Dimension Processor")
+st.markdown(
+    """
+Upload an Excel file containing auction lots, extract dimensions, classify item types, and download results.
+"""
+)
 
-        self.dimension_patterns = {
-            'H': re.compile(r'H\s*[:\s]*(\d+(?:[.,]\d+)?)', re.IGNORECASE),
-            'L': re.compile(r'L\s*[:\s]*(\d+(?:[.,]\d+)?)', re.IGNORECASE),
-            'P': re.compile(r'P\s*[:\s]*(\d+(?:[.,]\d+)?)', re.IGNORECASE),
-            'D': re.compile(r'D\s*[:\s]*(\d+(?:[.,]\d+)?)\s*(?:cm|×|x)', re.IGNORECASE),
-            'Diameter': re.compile(r'Ø\s*(?:\([^)]*\))?\s*[:\s]*(\d+(?:[.,]\d+)?)', re.IGNORECASE),
-        }
+# Sidebar
+st.sidebar.header("Upload & Options")
+uploaded_file = st.sidebar.file_uploader("Upload Excel file (.xlsx)", type=["xlsx"])
+show_logs = st.sidebar.checkbox("Show processing logs", value=True)
 
-        self.complete_pattern = re.compile(
-            r'H\s*[:\s]*(\d+(?:[.,]\d+)?)\s*[×x]\s*(?:L\s*[:\s]*(\d+(?:[.,]\d+)?)\s*[×x]\s*P\s*[:\s]*(\d+(?:[.,]\d+)?)|Ø\s*[:\s]*(\d+(?:[.,]\d+)?))',
-            re.IGNORECASE
-        )
-
-        self.simple_3d_pattern = re.compile(r'(\d+(?:[.,]\d+)?)\s*[×x]\s*(\d+(?:[.,]\d+)?)\s*[×x]\s*(\d+(?:[.,]\d+)?)\s*cm', re.IGNORECASE)
-        self.two_d_pattern = re.compile(r'(\d+(?:[.,]\d+)?)\s*[×x]\s*(\d+(?:[.,]\d+)?)\s*cm', re.IGNORECASE)
-
-        self.true_2d_materials = [
-            'huile', 'gouache', 'aquarelle', 'acrylique', 'pastel', 'crayon',
-            'dessin', 'gravure', 'lithographie', 'sérigraphie', 'estampe',
-            'papier', 'toile', 'canvas', 'encre', 'fusain', 'sanguine', 'collage',
-            'painting', 'drawing', 'print', 'watercolor', 'tapis', 'carpet', 'rug',
-            'tirage', 'photographie', 'photographique', 'photograph', 'cibachrome',
-            'argentique', 'gélatine', 'gelatin', 'c-print', 'chromogenic', 'chromogenique',
-            'épreuve', 'numérique', 'pigmentaire', 'inkjet', 'giclée', 'digital',
-            'fumage'
-        ]
-
-        self.panel_object_keywords = ['panneau', 'panel']
-        self.assemblage_keywords = ['objets', 'objects', 'assemblage', 'relief', 'montage', 'boite', 'boîte', 'box', 'caisse']
-        self.force_3d_keywords = ['valise', 'suitcase', 'malle', 'table', 'chaise', 'meuble', 'furniture']
-        self.fashion_keywords = ['robe', 'trench', 'veste', 'pantalon', 'costume', 'jupe', 'manteau',
-                                'chaussures', 'sac', 'taille', 'size']
-        self.complex_keywords = ['tiroir', 'drawer', 'miroir', 'mirror', 'siège', 'compartiment',
-                                'exceptionnel', 'numéroté', 'édition', 'limited']
-
-        self.material_keywords = {
-            'cuivre': 'Copper', 'laiton': 'Brass', 'bronze': 'Bronze', 'fer': 'Iron',
-            'acier': 'Steel', 'aluminium': 'Aluminum', 'métal': 'Metal', 'metal': 'Metal',
-            'bois': 'Wood', 'chêne': 'Oak', 'noyer': 'Walnut', 'teck': 'Teak',
-            'palissandre': 'Rosewood', 'ébène': 'Ebony', 'châtaignier': 'Chestnut',
-            'verre': 'Glass', 'cristal': 'Crystal', 'céramique': 'Ceramic',
-            'porcelaine': 'Porcelain', 'grès': 'Stoneware', 'faïence': 'Earthenware',
-            'marbre': 'Marble', 'pierre': 'Stone', 'granit': 'Granite', 'cuir': 'Leather',
-            'textile': 'Textile', 'tissu': 'Fabric', 'velours': 'Velvet', 'soie': 'Silk',
-            'coton': 'Cotton', 'lin': 'Linen', 'plastique': 'Plastic', 'résine': 'Resin',
-            'plexiglas': 'Plexiglass', 'toile': 'Canvas', 'papier': 'Paper',
-            'carton': 'Cardboard', 'wood': 'Wood', 'oak': 'Oak', 'walnut': 'Walnut',
-            'teak': 'Teak', 'glass': 'Glass', 'crystal': 'Crystal', 'ceramic': 'Ceramic',
-            'porcelain': 'Porcelain', 'marble': 'Marble', 'stone': 'Stone',
-            'leather': 'Leather', 'fabric': 'Fabric', 'velvet': 'Velvet', 'silk': 'Silk',
-            'cotton': 'Cotton'
-        }
-
-    # -------------------------
-    # Helper Methods
-    # -------------------------
-    def normalize_number(self, s: str) -> Optional[float]:
-        try:
-            return float(s.replace(',', '.'))
-        except:
-            return None
-
-    def extract_material(self, text: str) -> Optional[str]:
-        for k, v in self.material_keywords.items():
-            if k.lower() in text.lower():
-                return v
-        return None
-
-    def should_skip_lot(self, text: str) -> bool:
-        skip_keywords = ['lot', 'collection', 'ensemble']
-        return any(k.lower() in text.lower() for k in skip_keywords)
-
-    def detect_item_count(self, text: str) -> int:
-        for k, v in self.multiples_keywords.items():
-            if k in text.lower():
-                return v
-        return 1
-
-    def extract_dimensions(self, text: str) -> Tuple[Optional[float], Optional[float], Optional[float]]:
-        match = self.simple_3d_pattern.search(text)
-        if match:
-            return tuple(self.normalize_number(dim) for dim in match.groups())
-        match = self.two_d_pattern.search(text)
-        if match:
-            h, l = match.groups()
-            return self.normalize_number(h), self.normalize_number(l), None
-        return None, None, None
-
-    def classify_item_type(self, text: str) -> str:
-        text_lower = text.lower()
-        if any(k in text_lower for k in self.panel_object_keywords + self.assemblage_keywords + self.force_3d_keywords):
-            return '3D'
-        if any(k in text_lower for k in self.true_2d_materials):
-            return '2D'
-        return 'MANUAL_CHECK'
-
-    def process_lot(self, lot: pd.Series) -> Dict:
-        typeset = str(lot.get('TYPESET', ''))
-        material = self.extract_material(typeset)
-        h, l, p = self.extract_dimensions(typeset)
-        item_type = self.classify_item_type(typeset)
-        count = self.detect_item_count(typeset)
-        manual_review = item_type == 'MANUAL_CHECK'
-        return {
-            'H': h, 'L': l, 'P': p, 'MATERIAL': material,
-            'ITEM_TYPE': item_type, 'COUNT': count, 'MANUAL_REVIEW_REQUIRED': manual_review
-        }
-
-    def process_dataframe(self, df: pd.DataFrame) -> pd.DataFrame:
-        results = df.apply(lambda row: pd.Series(self.process_lot(row)), axis=1)
-        df_final = pd.concat([df, results], axis=1)
-        return df_final
-
-# -------------------------
-# Streamlit App Starts Here
-# -------------------------
-st.set_page_config(page_title="Piasa Auction Dimension Processor", layout="wide")
-st.title("Piasa Auction Dimension Processor")
-
-st.markdown("""
-Upload an Excel file with a 'TYPESET' column. The app will process dimensions for each lot,
-classify items as 2D/3D/MANUAL_CHECK, and allow you to download the processed Excel file.
-""")
-
-uploaded_file = st.file_uploader("Upload Excel file", type=["xlsx"])
+def highlight_row(row):
+    """Color rows based on item type and manual review"""
+    if row['MANUAL_REVIEW_REQUIRED']:
+        return ['background-color: #FFCCCC'] * len(row)  # Red for manual review
+    elif row['ITEM_TYPE'] == '2D':
+        return ['background-color: #CCFFCC'] * len(row)  # Green for 2D
+    elif row['ITEM_TYPE'] == '3D':
+        return ['background-color: #CCCCFF'] * len(row)  # Blue for 3D
+    else:
+        return [''] * len(row)
 
 if uploaded_file:
     try:
         df = pd.read_excel(uploaded_file)
-        st.success(f"Loaded {len(df)} rows")
-        processor = AuctionDimensionProcessor()
+        st.success(f"✅ Loaded {len(df)} rows!")
+        st.dataframe(df.head(5))
 
-        with st.spinner("Processing lots..."):
-            df_final = processor.process_dataframe(df)
+        if st.button("Process Lots"):
+            processor = AuctionDimensionProcessor()
+            with st.spinner("Processing lots... ⏳"):
+                df_final = processor.process_dataframe(df)
 
-        st.success("Processing complete!")
+            st.success("✅ Processing completed!")
 
-        # Show a preview of processed data
-        st.dataframe(df_final.head(10))
+            # Tabs
+            tab1, tab2, tab3 = st.tabs(["Summary Metrics", "Processed Data", "Logs"])
 
-        # Download button
-        output = BytesIO()
-        df_final.to_excel(output, index=False)
-        output.seek(0)
+            # --- Tab 1: Summary Metrics ---
+            with tab1:
+                st.markdown("### 📊 Processing Summary")
+                col1, col2, col3, col4 = st.columns(4)
+                col1.metric("Max Items in a Lot", df_final['ITEM_COUNT'].max())
+                col2.metric("2D Lots", (df_final['ITEM_TYPE'] == '2D').sum())
+                col3.metric("3D Lots", (df_final['ITEM_TYPE'] == '3D').sum())
+                col4.metric("Manual Review Required", df_final['MANUAL_REVIEW_REQUIRED'].sum())
 
-        st.download_button(
-            label="Download Processed Excel",
-            data=output,
-            file_name="extracted_dimensions_one_row_per_lot.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
+                # Top manual review reasons
+                manual_review_count = df_final['MANUAL_REVIEW_REQUIRED'].sum()
+                if manual_review_count > 0:
+                    st.markdown("#### ⚠ Top Manual Review Flags")
+                    manual_df = df_final[df_final['MANUAL_REVIEW_REQUIRED'] == True]
+                    st.dataframe(
+                        manual_df['PROCESSING_FLAGS']
+                        .value_counts()
+                        .head(10)
+                        .rename_axis("Flag")
+                        .reset_index(name="Count")
+                    )
 
-        st.markdown(f"Manual review required: {df_final['MANUAL_REVIEW_REQUIRED'].sum()} lots")
+            # --- Tab 2: Processed Data ---
+            with tab2:
+                st.markdown("### 📝 Processed Auction Lots")
+                st.dataframe(df_final.style.apply(highlight_row, axis=1))
+
+            # --- Tab 3: Logs ---
+            with tab3:
+                if show_logs:
+                    st.markdown("### ⚡ Conversion Logs")
+                    log_cols = ['LOT', 'ITEM_TYPE', 'PROCESSING_FLAGS', 'CONVERSION_LOG']
+                    log_cols = [col for col in log_cols if col in df_final.columns]
+                    st.dataframe(df_final[log_cols])
+
+            # --- Download button ---
+            st.markdown("### 💾 Download Processed File")
+            output_file = "extracted_dimensions_one_row_per_lot.xlsx"
+            df_final.to_excel(output_file, index=False)
+            with open(output_file, "rb") as f:
+                st.download_button(
+                    label="Download Excel",
+                    data=f,
+                    file_name=output_file,
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                )
 
     except Exception as e:
-        st.error(f"Error processing file: {e}")
+        st.error(f"❌ Error processing file: {e}")
+else:
+    st.info("Please upload an Excel file to begin processing.")

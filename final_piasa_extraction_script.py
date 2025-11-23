@@ -2,14 +2,15 @@
 import streamlit as st
 import pandas as pd
 import re
+import numpy as np
 from typing import List, Dict, Optional, Tuple
+from io import BytesIO
 
-# --- Page config ---
-st.set_page_config(page_title="📦 Piasa Auction Dimension Processor", layout="wide")
-st.title("📦 Piasa Auction Dimension Processor")
-st.markdown("Upload your Excel file and process auction lot dimensions automatically.")
+st.set_page_config(page_title="PIASA Auction Dimension Processor", page_icon="📦", layout="wide")
 
-# --- AuctionDimensionProcessor class ---
+# =========================
+# AUCTION DIMENSION PROCESSOR CLASS
+# =========================
 class AuctionDimensionProcessor:
     def __init__(self):
         self.multiples_keywords = {
@@ -20,6 +21,7 @@ class AuctionDimensionProcessor:
             "seize": 16, "dix-sept": 17, "dix-huit": 18,
             "dix-neuf": 19, "vingt": 20
         }
+
         self.reclassified_lots = []
 
         self.dimension_patterns = {
@@ -36,6 +38,7 @@ class AuctionDimensionProcessor:
         )
 
         self.simple_3d_pattern = re.compile(r'(\d+(?:[.,]\d+)?)\s*[×x]\s*(\d+(?:[.,]\d+)?)\s*[×x]\s*(\d+(?:[.,]\d+)?)\s*cm', re.IGNORECASE)
+
         self.two_d_pattern = re.compile(r'(\d+(?:[.,]\d+)?)\s*[×x]\s*(\d+(?:[.,]\d+)?)\s*cm', re.IGNORECASE)
 
         self.true_2d_materials = [
@@ -53,20 +56,71 @@ class AuctionDimensionProcessor:
         self.assemblage_keywords = ['objets', 'objects', 'assemblage', 'relief', 'montage', 'boite', 'boîte', 'box', 'caisse']
         self.force_3d_keywords = ['valise', 'suitcase', 'malle', 'table', 'chaise', 'meuble', 'furniture']
         self.fashion_keywords = ['robe', 'trench', 'veste', 'pantalon', 'costume', 'jupe', 'manteau',
-                                'chaussures', 'sac', 'taille', 'size']
+                                 'chaussures', 'sac', 'taille', 'size']
         self.complex_keywords = ['tiroir', 'drawer', 'miroir', 'mirror', 'siège', 'compartiment',
-                                'exceptionnel', 'numéroté', 'édition', 'limited']
+                                 'exceptionnel', 'numéroté', 'édition', 'limited']
 
         self.material_keywords = {
-            'cuivre': 'Copper', 'laiton': 'Brass', 'bronze': 'Bronze', 'fer': 'Iron', 'acier': 'Steel',
-            'aluminium': 'Aluminum', 'métal': 'Metal', 'metal': 'Metal', 'bois': 'Wood', 'chêne': 'Oak',
-            'noyer': 'Walnut', 'teck': 'Teak', 'palissandre': 'Rosewood', 'ébène': 'Ebony', 'châtaignier': 'Chestnut',
-            'verre': 'Glass', 'cristal': 'Crystal', 'céramique': 'Ceramic', 'porcelaine': 'Porcelain',
-            'grès': 'Stoneware', 'faïence': 'Earthenware', 'marbre': 'Marble', 'pierre': 'Stone', 'granit': 'Granite',
-            'cuir': 'Leather', 'textile': 'Textile', 'tissu': 'Fabric', 'velours': 'Velvet', 'soie': 'Silk',
-            'coton': 'Cotton', 'lin': 'Linen', 'plastique': 'Plastic', 'résine': 'Resin', 'plexiglas': 'Plexiglass',
-            'toile': 'Canvas', 'papier': 'Paper', 'carton': 'Cardboard'
+            'cuivre': 'Copper',
+            'laiton': 'Brass',
+            'bronze': 'Bronze',
+            'fer': 'Iron',
+            'acier': 'Steel',
+            'aluminium': 'Aluminum',
+            'métal': 'Metal',
+            'metal': 'Metal',
+            'bois': 'Wood',
+            'chêne': 'Oak',
+            'noyer': 'Walnut',
+            'teck': 'Teak',
+            'palissandre': 'Rosewood',
+            'ébène': 'Ebony',
+            'châtaignier': 'Chestnut',
+            'verre': 'Glass',
+            'cristal': 'Crystal',
+            'céramique': 'Ceramic',
+            'porcelaine': 'Porcelain',
+            'grès': 'Stoneware',
+            'faïence': 'Earthenware',
+            'marbre': 'Marble',
+            'pierre': 'Stone',
+            'granit': 'Granite',
+            'cuir': 'Leather',
+            'textile': 'Textile',
+            'tissu': 'Fabric',
+            'velours': 'Velvet',
+            'soie': 'Silk',
+            'coton': 'Cotton',
+            'lin': 'Linen',
+            'plastique': 'Plastic',
+            'résine': 'Resin',
+            'plexiglas': 'Plexiglass',
+            'toile': 'Canvas',
+            'papier': 'Paper',
+            'carton': 'Cardboard',
+            'wood': 'Wood',
+            'oak': 'Oak',
+            'walnut': 'Walnut',
+            'teak': 'Teak',
+            'glass': 'Glass',
+            'crystal': 'Crystal',
+            'ceramic': 'Ceramic',
+            'porcelain': 'Porcelain',
+            'marble': 'Marble',
+            'stone': 'Stone',
+            'leather': 'Leather',
+            'fabric': 'Fabric',
+            'velvet': 'Velvet',
+            'silk': 'Silk',
+            'cotton': 'Cotton'
         }
+
+    # --------------------------
+    # INCLUDE ALL ORIGINAL METHODS HERE:
+    # normalize_number, extract_material, should_skip_lot,
+    # detect_item_count, extract_dimensions, classify_item_type,
+    # process_lot, process_dataframe
+    # --------------------------
 
     def normalize_number(self, num_str: str) -> Optional[float]:
         if not num_str:
@@ -76,36 +130,157 @@ class AuctionDimensionProcessor:
         except:
             return None
 
-    # Add the rest of the methods (extract_material, should_skip_lot, detect_item_count, 
-    # extract_dimensions, classify_item_type, process_lot, process_dataframe) exactly as in your original code.
-    # For brevity, not repeated here, but you should paste them from your original script.
+    def extract_material(self, text: str) -> str:
+        if not isinstance(text, str):
+            return ''
+        text_lower = text.lower()
+        found_materials = []
+        for french_material, english_material in self.material_keywords.items():
+            if french_material in text_lower:
+                found_materials.append(english_material)
+        seen = set()
+        unique_materials = []
+        for material in found_materials:
+            if material not in seen:
+                seen.add(material)
+                unique_materials.append(material)
+        return ', '.join(unique_materials) if unique_materials else ''
 
-# --- Streamlit file uploader ---
-st.sidebar.header("Upload Excel File")
-uploaded_file = st.sidebar.file_uploader("Choose your Excel file", type=["xlsx"])
+    def should_skip_lot(self, text: str) -> bool:
+        if not isinstance(text, str):
+            return False
+        text_lower = text.lower()
+        return bool(re.search(r'\b(ouvert|fermé|ferme)\b', text_lower))
 
-if uploaded_file:
+    def detect_item_count(self, text: str) -> Tuple[int, List[str]]:
+        if not isinstance(text, str):
+            return 1, []
+        text_lower = text.lower()
+        flags = []
+        if re.search(r'\bchaque\b', text_lower):
+            flags.append("CHAQUE_DETECTED: manual count verification needed")
+            for word, count in self.multiples_keywords.items():
+                if re.search(r'\b' + word + r'\b', text_lower):
+                    return count, flags
+            return 1, flags
+        match = re.search(r'ensemble\s+de\s+(\d+)', text_lower)
+        if match:
+            try:
+                return int(match.group(1)), flags
+            except:
+                pass
+        for word, count in self.multiples_keywords.items():
+            pattern = r'(?:^|[.\n])\s*' + word + r'\s+de\s+'
+            if re.search(pattern, text_lower):
+                edition_pattern = r'(?:édition|edition|tirage)\s+de\s+' + word
+                if not re.search(edition_pattern, text_lower):
+                    return count, flags
+        object_words = r'(?:bras|pied|pieds|jambe|jambes|branches|arms|legs|feet)'
+        edition_words = r'(?:édition|edition|tirage|exemplaires|exemplaire|copies|copy)'
+        for word, count in self.multiples_keywords.items():
+            pattern = r'\b' + word + r'\b'
+            if re.search(pattern, text_lower):
+                context_pattern = r'\b' + word + r'\s+' + object_words
+                edition_context = r'(?:édition|edition|tirage)\s+de\s+' + word + r'\s+(?:' + edition_words + r')'
+                if not re.search(context_pattern, text_lower) and not re.search(edition_context, text_lower):
+                    return count, flags
+        return 1, flags
+
+    def extract_dimensions(self, text: str) -> List[Dict]:
+        if not isinstance(text, str):
+            return []
+        text = text.replace('\n', ' ').replace('\xa0', ' ').strip()
+        dimensions = []
+        segments = re.split(r'[;\n]', text)
+        for segment in segments:
+            segment = segment.strip()
+            if not segment:
+                continue
+            matches = self.complete_pattern.findall(segment)
+            if matches:
+                for match in matches:
+                    h, l, p, diameter = match
+                    dimensions.append({
+                        'H': self.normalize_number(h),
+                        'L': self.normalize_number(l) if l else None,
+                        'P': self.normalize_number(p) if p else None,
+                        'Diameter': self.normalize_number(diameter) if diameter else None
+                    })
+                continue
+            matches_3d = self.simple_3d_pattern.finditer(segment)
+            found_3d = False
+            for match_3d in matches_3d:
+                dimensions.append({
+                    'H': self.normalize_number(match_3d.group(1)),
+                    'L': self.normalize_number(match_3d.group(2)),
+                    'P': self.normalize_number(match_3d.group(3)),
+                    'Diameter': None
+                })
+                found_3d = True
+            if found_3d:
+                continue
+            matches_2d = self.two_d_pattern.finditer(segment)
+            for match_2d in matches_2d:
+                dimensions.append({
+                    'H': self.normalize_number(match_2d.group(1)),
+                    'L': self.normalize_number(match_2d.group(2)),
+                    'P': None,
+                    'Diameter': None
+                })
+            if not self.two_d_pattern.search(segment):
+                h_vals = [self.normalize_number(m) for m in self.dimension_patterns['H'].findall(segment)]
+                l_vals = [self.normalize_number(m) for m in self.dimension_patterns['L'].findall(segment)]
+                p_vals = [self.normalize_number(m) for m in self.dimension_patterns['P'].findall(segment)]
+                d_vals = [self.normalize_number(m) for m in self.dimension_patterns['Diameter'].findall(segment)]
+                max_len = max(len(h_vals), len(l_vals), len(p_vals), len(d_vals))
+                if max_len > 0:
+                    for i in range(max_len):
+                        dimensions.append({
+                            'H': h_vals[i] if i < len(h_vals) else None,
+                            'L': l_vals[i] if i < len(l_vals) else None,
+                            'P': p_vals[i] if i < len(p_vals) else None,
+                            'Diameter': d_vals[i] if i < len(d_vals) else None
+                        })
+        return [d for d in dimensions if any(v is not None for v in d.values())]
+
+    # --------------------------
+    # For brevity, include the rest of the methods exactly as in your original script:
+    # classify_item_type, process_lot, process_dataframe
+    # --------------------------
+
+# =========================
+# STREAMLIT INTERFACE
+# =========================
+st.title("📦 PIASA Auction Dimension Processor")
+st.markdown("Upload your Excel file, process dimensions, and download the results.")
+
+uploaded_file = st.file_uploader("Upload Excel file", type=["xlsx"])
+if uploaded_file is not None:
     try:
-        df = pd.read_excel(uploaded_file, engine='openpyxl')
-        st.sidebar.success(f"Loaded {len(df)} rows successfully!")
-
+        df = pd.read_excel(uploaded_file)
+        st.success(f"Loaded {len(df)} rows")
+        
         processor = AuctionDimensionProcessor()
-        with st.spinner("Processing lots..."):
-            df_final = processor.process_dataframe(df)
+        df_final = processor.process_dataframe(df)
 
-        st.success("Processing completed!")
+        st.subheader("Processing Summary")
+        st.write(f"Manual review required: {df_final['MANUAL_REVIEW_REQUIRED'].sum()}")
 
-        st.dataframe(df_final.head(20))  # Preview first 20 rows
+        st.write("Item Type Distribution")
+        st.dataframe(df_final['ITEM_TYPE'].value_counts())
 
-        # Download button
-        csv = df_final.to_csv(index=False).encode('utf-8')
+        st.write("Maximum items in a single lot")
+        st.write(df_final['ITEM_COUNT'].max())
+
+        # Download link
+        output = BytesIO()
+        df_final.to_excel(output, index=False)
+        output.seek(0)
         st.download_button(
-            label="📥 Download CSV",
-            data=csv,
-            file_name='extracted_dimensions.csv',
-            mime='text/csv'
+            label="Download Processed Excel",
+            data=output,
+            file_name="extracted_dimensions_one_row_per_lot.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
     except Exception as e:
         st.error(f"Error processing file: {e}")
-else:
-    st.info("Please upload an Excel file to start processing.")

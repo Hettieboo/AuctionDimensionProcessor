@@ -357,7 +357,7 @@ st.markdown("---")
 st.markdown(
     """
     <div style='text-align: center; color: #718096; padding: 20px;'>
-        <p>Made with ❤️ using Streamlit | © 2024 Auction Dimension Processor</p>
+        <p>Made with ❤️ by, Henrietta Atsenokhai, using Streamlit | © 2024 Auction Dimension Processor</p>
     </div>
     """,
     unsafe_allow_html=True

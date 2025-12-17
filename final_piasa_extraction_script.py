@@ -3,131 +3,120 @@ import streamlit as st
 import pandas as pd
 import re
 from io import BytesIO
+from datetime import datetime
 import plotly.express as px
 import plotly.graph_objects as go
-from datetime import datetime
 
-# ----------------- AuctionDimensionProcessor -----------------
-class AuctionDimensionProcessor:
+# -----------------------------
+# Auction Dimension Extractor
+# -----------------------------
+class AuctionDimensionExtractor:
     def __init__(self):
-        # Map words to numbers
         self.multiples_keywords = {
             "paire": 2, "deux": 2, "trois": 3, "quatre": 4,
             "cinq": 5, "six": 6, "sept": 7, "huit": 8,
             "neuf": 9, "dix": 10
         }
-        # Patterns for dimensions
         self.dimension_patterns = {
             'H': re.compile(r'H\s*[:\s]*(\d+(?:[.,]\d+)?)', re.IGNORECASE),
             'L': re.compile(r'L\s*[:\s]*(\d+(?:[.,]\d+)?)', re.IGNORECASE),
             'P': re.compile(r'P\s*[:\s]*(\d+(?:[.,]\d+)?)', re.IGNORECASE),
+            'Diameter': re.compile(r'Ø\s*[:\s]*(\d+(?:[.,]\d+)?)', re.IGNORECASE)
         }
-        
-        # Track metrics
-        self.metrics = {
-            'total_items': 0,
-            'processed_items': 0,
-            'errors': 0,
-            'item_types': {},
-            'processing_time': 0
-        }
-    
+
     def normalize_number(self, num_str):
-        if not num_str:
-            return None
         try:
-            return float(num_str.replace(',', '.'))
+            return float(str(num_str).replace(",", "."))
         except:
             return None
-    
-    def process_dataframe(self, df: pd.DataFrame) -> pd.DataFrame:
-        start_time = datetime.now()
-        self.metrics['total_items'] = len(df)
-        
-        df['ITEM_COUNT'] = 1
-        df['ITEM_TYPE'] = '3D'
-        
-        # Track item types
-        for item_type in df['ITEM_TYPE'].unique():
-            self.metrics['item_types'][item_type] = (df['ITEM_TYPE'] == item_type).sum()
-        
-        self.metrics['processed_items'] = len(df)
-        self.metrics['processing_time'] = (datetime.now() - start_time).total_seconds()
-        
-        return df
-    
-    def get_metrics(self):
-        return self.metrics
 
-# ----------------- Streamlit Interface -----------------
-st.set_page_config(
-    page_title="Auction Dimension Processor",
-    page_icon="📦",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
+    def detect_multiples(self, text):
+        text = str(text).lower()
+        for word, count in self.multiples_keywords.items():
+            if word in text:
+                return count
+        m = re.search(r'ensemble\s+de\s+(\d+)', text)
+        if m:
+            return int(m.group(1))
+        return 1
 
-# Custom CSS for beautiful styling
+    def detect_item_type(self, text):
+        keywords_2d = [
+            'huile', 'gouache', 'aquarelle', 'acrylique', 'pastel', 'crayon',
+            'dessin', 'gravure', 'lithographie', 'sérigraphie', 'estampe',
+            'papier', 'toile', 'canvas', 'carton', 'technique mixte',
+            'oil', 'watercolor', 'acrylic', 'drawing', 'print', 'painting',
+            'encre', 'fusain', 'sanguine', 'collage', 'mixed media'
+        ]
+        ignore_terms = ['provenance', 'bibliographie', 'catalogue', 'album', 'exposition', 'collection']
+        text_lower = str(text).lower()[:300]
+        if any(k in text_lower for k in keywords_2d) and not any(i in text_lower for i in ignore_terms):
+            return '2D'
+        return '3D'
+
+    def extract_dimensions(self, text):
+        dims = []
+        for segment in re.split(r'[;\n]', str(text)):
+            d = {'H': None, 'L': None, 'P': None, 'Diameter': None}
+            for key, pattern in self.dimension_patterns.items():
+                match = pattern.search(segment)
+                d[key] = self.normalize_number(match.group(1)) if match else None
+            dims.append(d)
+        return dims
+
+    def process_dataframe(self, df, typeset_col='TYPESET'):
+        rows = []
+        for _, row in df.iterrows():
+            text = str(row.get(typeset_col, ''))
+            multiples = self.detect_multiples(text)
+            item_type = self.detect_item_type(text)
+            dims_list = self.extract_dimensions(text)
+            if len(dims_list) == 1 and multiples > 1:
+                dims_list *= multiples
+            elif len(dims_list) > 1 and multiples > len(dims_list):
+                cycles = (multiples + len(dims_list) - 1) // len(dims_list)
+                dims_list = (dims_list * cycles)[:multiples]
+            for dims in dims_list:
+                new_row = row.copy()
+                new_row.update(dims)
+                new_row['ITEM_TYPE'] = item_type
+                new_row['ITEM_COUNT'] = multiples
+                new_row['D'] = dims.get('Diameter') or dims.get('P') or dims.get('L')
+                rows.append(new_row)
+        return pd.DataFrame(rows)
+
+def shipping_ready(df):
+    df = df.copy()
+    df['CONVERSION_LOG'] = ''
+    for idx, row in df.iterrows():
+        logs = []
+        if row['ITEM_TYPE'] == '2D':
+            logs.append("2D: L=max(H,L), D=5")
+        else:
+            if pd.notna(row.get('Diameter')):
+                if row['L'] != row['Diameter']:
+                    df.at[idx, 'L'] = row['Diameter']
+                    logs.append("L=Ø")
+                if row['D'] != row['Diameter']:
+                    df.at[idx, 'D'] = row['Diameter']
+                    logs.append("D=Ø")
+        df.at[idx, 'CONVERSION_LOG'] = "; ".join(logs)
+    return df
+
+# -----------------------------
+# Streamlit UI
+# -----------------------------
+st.set_page_config(page_title="Auction Dimension Processor", layout="wide", page_icon="📦")
 st.markdown("""
     <style>
-    .main {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    }
-    .stApp {
-        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-    }
-    .metric-card {
-        background: white;
-        padding: 20px;
-        border-radius: 10px;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        margin: 10px 0;
-    }
-    .big-font {
-        font-size: 50px !important;
-        font-weight: bold;
-        color: #667eea;
-    }
-    .medium-font {
-        font-size: 24px !important;
-        color: #4a5568;
-    }
-    h1 {
-        color: #2d3748;
-        font-weight: 800;
-        text-align: center;
-        padding: 20px 0;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        background-clip: text;
-    }
-    .stButton>button {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        border: none;
-        padding: 10px 24px;
-        border-radius: 8px;
-        font-weight: 600;
-        transition: all 0.3s ease;
-    }
-    .stButton>button:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 6px 12px rgba(102, 126, 234, 0.4);
-    }
-    .upload-section {
-        background: white;
-        padding: 30px;
-        border-radius: 15px;
-        box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
-        margin: 20px 0;
-    }
+    .stApp {background: linear-gradient(135deg, #f9f9f9, #e0f7fa);}
+    .header {text-align:center; font-size:42px; font-weight:bold; background: linear-gradient(135deg,#ff6f61,#1abc9c); -webkit-background-clip: text; -webkit-text-fill-color: transparent;}
+    .metric-card {background:white; padding:15px; border-radius:10px; box-shadow:0 4px 6px rgba(0,0,0,0.1);}
     </style>
 """, unsafe_allow_html=True)
 
-# Header
-st.title("📦 Auction Dimension Processor")
-st.markdown("### *Transform your auction data with precision and elegance*")
+st.markdown('<div class="header">📦 Auction Dimension Processor</div>', unsafe_allow_html=True)
+st.markdown("### Transform auction data with precision and style")
 st.markdown("---")
 
 # Sidebar
@@ -135,230 +124,94 @@ with st.sidebar:
     st.image("https://img.icons8.com/fluency/96/000000/auction.png", width=100)
     st.markdown("## 📊 About")
     st.info("""
-    **Auction Dimension Processor** helps you:
-    - 📤 Upload auction data (Excel)
-    - 🔄 Process dimensions automatically
-    - 📈 View real-time metrics
-    - 💾 Download processed results
+    - Upload Excel auction data
+    - Extract H, L, P, Diameter
+    - Detect 2D/3D items and multiples
+    - Prepare shipping-ready D values
+    - Visualize metrics and download results
     """)
-    
+    typeset_col = st.text_input("TypeSet Column Name", value="TYPESET")
+    show_shipping = st.checkbox("Show Shipping-Ready Data", value=True)
     st.markdown("---")
-    st.markdown("### 🎯 Quick Stats")
-    if 'processor' in st.session_state and st.session_state.get('processed', False):
-        metrics = st.session_state.processor.get_metrics()
-        st.metric("Total Items", metrics['total_items'])
-        st.metric("Processing Time", f"{metrics['processing_time']:.2f}s")
-        st.metric("Success Rate", f"{(metrics['processed_items']/metrics['total_items']*100):.1f}%")
 
-# Main content
-col1, col2 = st.columns([2, 1])
-
-with col1:
-    st.markdown('<div class="upload-section">', unsafe_allow_html=True)
-    st.markdown("#### 📁 Upload Your File")
-    uploaded_file = st.file_uploader(
-        "Choose an Excel file containing auction lots",
-        type=["xlsx"],
-        help="Upload your Excel file with auction data"
-    )
-    st.markdown('</div>', unsafe_allow_html=True)
-
-with col2:
-    st.markdown('<div class="upload-section">', unsafe_allow_html=True)
-    st.markdown("#### ℹ️ File Requirements")
-    st.markdown("""
-    - Format: `.xlsx`
-    - Contains auction lot data
-    - Dimension information
-    """)
-    st.markdown('</div>', unsafe_allow_html=True)
-
+# File Upload
+uploaded_file = st.file_uploader("Upload Excel file", type=["xlsx"])
 if uploaded_file:
-    try:
-        df = pd.read_excel(uploaded_file)
-        
-        # Display success message
-        st.balloons()
-        st.success(f"✅ Successfully loaded **{len(df):,}** rows!")
-        
-        # Initialize processor
-        processor = AuctionDimensionProcessor()
-        st.session_state.processor = processor
-        
-        # Processing
-        with st.spinner("🔄 Processing your auction lots..."):
-            df_final = processor.process_dataframe(df)
-            st.session_state.processed = True
-        
-        st.success("✨ Processing complete!")
-        
-        # Key Metrics Section
-        st.markdown("---")
-        st.markdown("## 📊 Key Metrics Dashboard")
-        
-        metrics = processor.get_metrics()
-        
-        # Top metrics row
-        col1, col2, col3, col4 = st.columns(4)
-        
-        with col1:
-            st.markdown('<div class="metric-card">', unsafe_allow_html=True)
-            st.metric(
-                label="📦 Total Items",
-                value=f"{metrics['total_items']:,}",
-                delta="Processed"
-            )
-            st.markdown('</div>', unsafe_allow_html=True)
-        
-        with col2:
-            st.markdown('<div class="metric-card">', unsafe_allow_html=True)
-            st.metric(
-                label="⚡ Processing Time",
-                value=f"{metrics['processing_time']:.2f}s",
-                delta=f"{metrics['total_items']/metrics['processing_time']:.0f} items/s" if metrics['processing_time'] > 0 else "N/A"
-            )
-            st.markdown('</div>', unsafe_allow_html=True)
-        
-        with col3:
-            st.markdown('<div class="metric-card">', unsafe_allow_html=True)
-            success_rate = (metrics['processed_items'] / metrics['total_items'] * 100) if metrics['total_items'] > 0 else 0
-            st.metric(
-                label="✅ Success Rate",
-                value=f"{success_rate:.1f}%",
-                delta="Excellent" if success_rate > 95 else "Good"
-            )
-            st.markdown('</div>', unsafe_allow_html=True)
-        
-        with col4:
-            st.markdown('<div class="metric-card">', unsafe_allow_html=True)
-            st.metric(
-                label="📋 Columns",
-                value=len(df_final.columns),
-                delta=f"{len(df_final.columns) - len(df)} new"
-            )
-            st.markdown('</div>', unsafe_allow_html=True)
-        
-        # Charts row
-        st.markdown("---")
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            # Item types distribution
-            if metrics['item_types']:
-                fig = px.pie(
-                    values=list(metrics['item_types'].values()),
-                    names=list(metrics['item_types'].keys()),
-                    title="📊 Item Type Distribution",
-                    color_discrete_sequence=px.colors.sequential.RdBu
-                )
-                fig.update_layout(
-                    plot_bgcolor='rgba(0,0,0,0)',
-                    paper_bgcolor='rgba(0,0,0,0)',
-                )
-                st.plotly_chart(fig, use_container_width=True)
-        
-        with col2:
-            # Processing summary
-            summary_data = {
-                'Category': ['Total Items', 'Processed', 'Errors'],
-                'Count': [metrics['total_items'], metrics['processed_items'], metrics['errors']]
-            }
-            fig = go.Figure(data=[
-                go.Bar(
-                    x=summary_data['Category'],
-                    y=summary_data['Count'],
-                    marker_color=['#667eea', '#28a745', '#dc3545'],
-                    text=summary_data['Count'],
-                    textposition='auto',
-                )
-            ])
-            fig.update_layout(
-                title="📈 Processing Summary",
-                plot_bgcolor='rgba(0,0,0,0)',
-                paper_bgcolor='rgba(0,0,0,0)',
-                yaxis_title="Count",
-                showlegend=False
-            )
-            st.plotly_chart(fig, use_container_width=True)
-        
-        # Data preview
-        st.markdown("---")
-        st.markdown("## 🔍 Data Preview")
-        
-        # Show column statistics
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            st.info(f"**Rows:** {len(df_final):,}")
-        with col2:
-            st.info(f"**Columns:** {len(df_final.columns)}")
-        with col3:
-            memory_usage = df_final.memory_usage(deep=True).sum() / 1024**2
-            st.info(f"**Memory:** {memory_usage:.2f} MB")
-        
-        # Interactive data table
-        st.dataframe(
-            df_final.head(20),
-            use_container_width=True,
-            height=400
-        )
-        
-        # Column information
-        with st.expander("📋 View Column Information"):
-            col_info = pd.DataFrame({
-                'Column': df_final.columns,
-                'Type': df_final.dtypes.values,
-                'Non-Null Count': df_final.count().values,
-                'Null Count': df_final.isnull().sum().values
-            })
-            st.dataframe(col_info, use_container_width=True)
-        
-        # Download section
-        st.markdown("---")
-        st.markdown("## 💾 Download Results")
-        
-        col1, col2, col3 = st.columns([1, 2, 1])
-        with col2:
-            output = BytesIO()
-            df_final.to_excel(output, index=False)
-            output.seek(0)
-            
-            st.download_button(
-                label="⬇️ Download Processed Excel File",
-                data=output,
-                file_name=f"processed_auction_lots_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                use_container_width=True
-            )
-        
-    except Exception as e:
-        st.error(f"❌ Error processing file: {str(e)}")
-        st.exception(e)
-else:
-    # Welcome screen when no file is uploaded
+    df = pd.read_excel(uploaded_file)
+    st.success(f"✅ Loaded {len(df):,} rows")
+    st.dataframe(df.head(5))
+
+    # Processing
+    extractor = AuctionDimensionExtractor()
+    df_processed = extractor.process_dataframe(df, typeset_col)
+    df_final = shipping_ready(df_processed) if show_shipping else df_processed
+
+    # Metrics
     st.markdown("---")
-    col1, col2, col3 = st.columns([1, 2, 1])
+    st.subheader("📊 Key Metrics")
+    total_items = len(df_final)
+    total_2d = len(df_final[df_final['ITEM_TYPE'] == '2D'])
+    total_3d = len(df_final[df_final['ITEM_TYPE'] == '3D'])
+    total_converted = len(df_final[df_final['CONVERSION_LOG'] != ''])
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("Total Items", total_items)
+    col2.metric("2D Items", total_2d)
+    col3.metric("3D Items", total_3d)
+    col4.metric("Converted Rows", total_converted)
+
+    # Filters
+    st.markdown("---")
+    st.subheader("⚡ Filters")
+    type_filter = st.multiselect("Filter by ITEM_TYPE", options=['2D','3D'], default=['2D','3D'])
+    conversion_filter = st.checkbox("Show only converted rows")
+    df_filtered = df_final[df_final['ITEM_TYPE'].isin(type_filter)]
+    if conversion_filter:
+        df_filtered = df_filtered[df_filtered['CONVERSION_LOG'] != '']
+
+    # Charts
+    st.markdown("---")
+    st.subheader("📈 Visualizations")
+    col1, col2 = st.columns(2)
+    with col1:
+        fig = px.pie(
+            df_filtered, names='ITEM_TYPE', title="Item Type Distribution",
+            color_discrete_map={'2D':'#FF6F61','3D':'#1ABC9C'}
+        )
+        st.plotly_chart(fig, use_container_width=True)
     with col2:
-        st.info("👆 **Get started by uploading an Excel file above**")
-        
-        # Feature highlights
-        st.markdown("### ✨ Features")
-        features = [
-            "🚀 Fast processing of large datasets",
-            "📊 Real-time metrics and visualizations",
-            "🎯 Automatic dimension extraction",
-            "💾 Easy Excel export",
-            "📈 Comprehensive data insights"
-        ]
-        for feature in features:
-            st.markdown(f"- {feature}")
+        df_filtered['Converted'] = df_filtered['CONVERSION_LOG'].apply(lambda x: 0 if x=='' else 1)
+        fig2 = px.histogram(df_filtered, x='D', color='ITEM_TYPE', nbins=20,
+                            title="Distribution of D by ITEM_TYPE",
+                            color_discrete_map={'2D':'#FF6F61','3D':'#1ABC9C'})
+        st.plotly_chart(fig2, use_container_width=True)
+
+    # Data table
+    st.markdown("---")
+    st.subheader("🔍 Data Preview")
+    def highlight_row(row):
+        if row['ITEM_TYPE']=='2D':
+            return ['background-color:#FFEBE6']*len(row)
+        elif row['ITEM_TYPE']=='3D':
+            return ['background-color:#E0F7FA']*len(row)
+        return ['']*len(row)
+    st.dataframe(df_filtered.style.apply(highlight_row, axis=1), height=400)
+
+    # Download
+    st.markdown("---")
+    st.subheader("💾 Download Processed File")
+    output = BytesIO()
+    df_filtered.to_excel(output, index=False)
+    output.seek(0)
+    st.download_button(
+        "⬇️ Download Excel",
+        data=output,
+        file_name=f"processed_auction_lots_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+
+else:
+    st.info("👆 Upload an Excel file to get started!")
 
 # Footer
 st.markdown("---")
-st.markdown(
-    """
-    <div style='text-align: center; color: #718096; padding: 20px;'>
-        <p>Made with ❤️ by, Henrietta Atsenokhai, using Streamlit | © 2024 Auction Dimension Processor</p>
-    </div>
-    """,
-    unsafe_allow_html=True
-)
+st.markdown("<div style='text-align:center;color:#718096;padding:20px;'>Made with ❤️ by Henrietta Atsenokhai | © 2025</div>", unsafe_allow_html=True)

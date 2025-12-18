@@ -188,6 +188,7 @@ class AuctionDimensionExtractor:
                 'item_type': item_type,
                 'dimensions': [],
                 'flags': all_flags,
+                'conversion_log': 'No dimensions found in text',
                 'manual_review': True
             }
         

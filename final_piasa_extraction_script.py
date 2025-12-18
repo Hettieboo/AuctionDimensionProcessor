@@ -160,7 +160,7 @@ st.markdown("""
         margin-bottom: 0;
     }
     .header-frame {
-        background: linear-gradient(135deg, #4a90e2 0%, #357abd 100%);
+        background: linear-gradient(135deg, #2d5016 0%, #1a3409 100%);
         padding: 40px 20px;
         border-radius: 8px;
         text-align: center;
@@ -173,7 +173,7 @@ st.markdown("""
         font-size: 2.5rem;
     }
     .header-frame p {
-        color: #e3f2fd;
+        color: #d4e7c5;
         margin: 10px 0 0 0;
         font-size: 1.1rem;
     }

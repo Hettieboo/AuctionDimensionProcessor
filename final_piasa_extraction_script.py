@@ -135,221 +135,59 @@ def prepare_shipping(df):
 st.set_page_config(
     page_title="Auction Dimension Processor",
     layout="wide",
-    page_icon="🎨",
-    initial_sidebar_state="expanded"
+    page_icon="📦"
 )
 
-# Enhanced custom styling
 st.markdown("""
 <style>
-    /* Main app background with elegant gradient */
     .stApp {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        background-color: #ffffff;
     }
-    
-    /* Main content area */
-    .main .block-container {
-        background: rgba(255, 255, 255, 0.95);
-        border-radius: 20px;
-        padding: 2rem;
-        box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-    }
-    
-    /* Beautiful header */
-    .main-header {
-        text-align: center;
-        font-size: 3.5rem;
-        font-weight: 800;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        margin-bottom: 0.5rem;
-        letter-spacing: -1px;
-    }
-    
-    .sub-header {
-        text-align: center;
-        color: #666;
-        font-size: 1.2rem;
-        margin-bottom: 2rem;
-        font-weight: 300;
-    }
-    
-    /* Metric cards */
-    div[data-testid="metric-container"] {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        border-radius: 15px;
-        padding: 20px;
-        box-shadow: 0 8px 16px rgba(102, 126, 234, 0.4);
-        border: none;
-    }
-    
-    div[data-testid="metric-container"] label {
-        color: white !important;
+    h1 {
+        color: #2c3e50;
         font-weight: 600;
-        font-size: 0.9rem;
     }
-    
-    div[data-testid="metric-container"] [data-testid="stMetricValue"] {
-        color: white !important;
-        font-size: 2rem;
-        font-weight: 700;
-    }
-    
-    div[data-testid="metric-container"] [data-testid="stMetricDelta"] {
-        color: rgba(255,255,255,0.8) !important;
-    }
-    
-    /* Sidebar styling */
-    section[data-testid="stSidebar"] {
-        background: linear-gradient(180deg, #667eea 0%, #764ba2 100%);
-    }
-    
-    section[data-testid="stSidebar"] * {
-        color: white !important;
-    }
-    
-    section[data-testid="stSidebar"] .stMarkdown {
-        color: white !important;
-    }
-    
-    /* Buttons */
-    .stDownloadButton button {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        border: none;
-        border-radius: 10px;
-        padding: 0.75rem 2rem;
-        font-weight: 600;
-        transition: all 0.3s ease;
-        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
-    }
-    
-    .stDownloadButton button:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
-    }
-    
-    /* Info boxes */
-    .stAlert {
-        border-radius: 10px;
-        border-left: 5px solid #667eea;
-    }
-    
-    /* Upload area */
-    .uploadedFile {
-        border-radius: 10px;
-        border: 2px dashed #667eea;
-    }
-    
-    /* Dividers */
-    hr {
-        margin: 2rem 0;
-        border: none;
-        height: 2px;
-        background: linear-gradient(90deg, transparent, #667eea, transparent);
+    h2, h3 {
+        color: #34495e;
     }
 </style>
 """, unsafe_allow_html=True)
 
-# Header with beautiful emoji
-st.markdown('<div class="main-header">🎨 Auction Dimension Processor</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-header">Transform auction data with precision and elegance</div>', unsafe_allow_html=True)
-st.markdown("---")
+st.title("📦 Auction Dimension Processor")
+st.markdown("Process and analyze auction lot data")
+st.divider()
 
-# Beautiful sidebar with custom logo
+# Sidebar
 with st.sidebar:
-    # Custom SVG logo
-    st.markdown("""
-    <div style="text-align: center; padding: 20px 0;">
-        <svg width="120" height="120" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
-            <!-- Auction hammer -->
-            <defs>
-                <linearGradient id="hammerGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" style="stop-color:#f093fb;stop-opacity:1" />
-                    <stop offset="100%" style="stop-color:#f5576c;stop-opacity:1" />
-                </linearGradient>
-                <linearGradient id="blockGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" style="stop-color:#ffd89b;stop-opacity:1" />
-                    <stop offset="100%" style="stop-color:#19547b;stop-opacity:1" />
-                </linearGradient>
-            </defs>
-            
-            <!-- Auction block -->
-            <rect x="40" y="140" width="80" height="40" rx="5" fill="url(#blockGrad)" />
-            
-            <!-- Hammer handle -->
-            <rect x="85" y="40" width="15" height="100" rx="7" fill="url(#hammerGrad)" 
-                  transform="rotate(-25 92 90)" />
-            
-            <!-- Hammer head -->
-            <rect x="65" y="25" width="50" height="25" rx="5" fill="url(#hammerGrad)" 
-                  transform="rotate(-25 90 37)" />
-            
-            <!-- Sparkles -->
-            <circle cx="160" cy="40" r="3" fill="#fff" opacity="0.8">
-                <animate attributeName="opacity" values="0.8;0.3;0.8" dur="2s" repeatCount="indefinite"/>
-            </circle>
-            <circle cx="170" cy="60" r="2" fill="#fff" opacity="0.6">
-                <animate attributeName="opacity" values="0.6;0.2;0.6" dur="1.5s" repeatCount="indefinite"/>
-            </circle>
-            <circle cx="155" cy="70" r="2.5" fill="#fff" opacity="0.7">
-                <animate attributeName="opacity" values="0.7;0.3;0.7" dur="1.8s" repeatCount="indefinite"/>
-            </circle>
-        </svg>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    st.markdown("## 📊 Features")
-    st.markdown("""
-    <div style="background: rgba(255,255,255,0.1); padding: 15px; border-radius: 10px; backdrop-filter: blur(10px);">
-    ✨ <b>Smart Extraction</b><br/>
-    📐 Auto-detect dimensions<br/>
-    🎭 Classify 2D/3D items<br/>
-    📦 Shipping-ready output<br/>
-    📊 Beautiful analytics<br/>
-    💾 Multi-format export
-    </div>
-    """, unsafe_allow_html=True)
-    
-    st.markdown("---")
-    
-    st.markdown("## ⚙️ Settings")
-    typeset_col = st.text_input("TypeSet Column", value="TYPESET")
+    st.header("Settings")
+    typeset_col = st.text_input("TypeSet Column Name", value="TYPESET")
     show_shipping = st.checkbox("Apply Shipping Rules", value=True)
     
-    st.markdown("---")
-    st.markdown("""
-    <div style="text-align: center; padding: 20px 0;">
-        <p style="font-size: 0.9rem; opacity: 0.8;">Made with ❤️</p>
-        <p style="font-size: 1.1rem; font-weight: 600;">Henrietta Atsenokhai</p>
-    </div>
-    """, unsafe_allow_html=True)
+    st.divider()
+    
+    st.markdown("**About**")
+    st.caption("Extract dimensions, classify items, and prepare shipping-ready data from auction catalogs.")
 
-# File upload with enhanced styling
-uploaded_file = st.file_uploader(
-    "📂 Upload your Excel file",
-    type=["xlsx"],
-    help="Select an Excel file containing auction lot data"
-)
+# File upload
+uploaded_file = st.file_uploader("Upload Excel file", type=["xlsx"])
 
 if uploaded_file:
     # Load data
     df = pd.read_excel(uploaded_file)
-    st.success(f"✅ Successfully loaded {len(df):,} rows")
+    st.success(f"Loaded {len(df):,} rows")
     
-    with st.expander("🔍 View Original Data", expanded=False):
+    with st.expander("View original data"):
         st.dataframe(df.head(10), use_container_width=True)
     
     # Process data
-    with st.spinner("🔄 Processing auction data..."):
+    with st.spinner("Processing..."):
         extractor = AuctionDimensionExtractor()
         df_processed = extractor.process_dataframe(df, typeset_col)
         df_final = prepare_shipping(df_processed) if show_shipping else df_processed
     
-    # Key metrics
-    st.markdown("---")
-    st.subheader("📊 Key Metrics")
+    # Metrics
+    st.divider()
+    st.subheader("Key Metrics")
     
     col1, col2, col3, col4 = st.columns(4)
     total_items = len(df_final)
@@ -363,28 +201,28 @@ if uploaded_file:
     col4.metric("Converted", f"{total_converted:,}")
     
     # Filters
-    st.markdown("---")
-    st.subheader("⚡ Filters")
-    col1, col2 = st.columns([2, 1])
+    st.divider()
+    st.subheader("Filters")
     
+    col1, col2 = st.columns([2, 1])
     with col1:
         type_filter = st.multiselect(
-            "Filter by Item Type",
+            "Item Type",
             options=['2D', '3D'],
             default=['2D', '3D']
         )
     with col2:
-        conversion_filter = st.checkbox("Show only converted rows")
+        conversion_filter = st.checkbox("Only converted rows")
     
     df_filtered = df_final[df_final['ITEM_TYPE'].isin(type_filter)].copy()
     if conversion_filter:
         df_filtered = df_filtered[df_filtered['CONVERSION_LOG'] != '']
     
-    st.info(f"📋 Showing {len(df_filtered):,} of {len(df_final):,} rows")
+    st.caption(f"Showing {len(df_filtered):,} of {len(df_final):,} rows")
     
     # Visualizations
-    st.markdown("---")
-    st.subheader("📈 Visualizations")
+    st.divider()
+    st.subheader("Visualizations")
     
     col1, col2 = st.columns(2)
     
@@ -394,20 +232,9 @@ if uploaded_file:
             values=type_counts.values,
             names=type_counts.index,
             title="Item Type Distribution",
-            color=type_counts.index,
-            color_discrete_map={'2D': '#f093fb', '3D': '#667eea'}
+            color_discrete_sequence=['#3498db', '#e74c3c']
         )
-        fig.update_traces(
-            textposition='inside',
-            textinfo='percent+label',
-            textfont_size=14
-        )
-        fig.update_layout(
-            showlegend=True,
-            paper_bgcolor='rgba(0,0,0,0)',
-            plot_bgcolor='rgba(0,0,0,0)',
-            font=dict(size=12)
-        )
+        fig.update_traces(textposition='inside', textinfo='percent+label')
         st.plotly_chart(fig, use_container_width=True)
     
     with col2:
@@ -417,40 +244,25 @@ if uploaded_file:
             x='D',
             color='ITEM_TYPE',
             nbins=30,
-            title="Distribution of D by Item Type",
-            color_discrete_map={'2D': '#f093fb', '3D': '#667eea'},
+            title="D Distribution by Type",
+            color_discrete_sequence=['#3498db', '#e74c3c'],
             barmode='overlay',
             opacity=0.7
-        )
-        fig2.update_layout(
-            bargap=0.1,
-            paper_bgcolor='rgba(0,0,0,0)',
-            plot_bgcolor='rgba(0,0,0,0)',
-            font=dict(size=12)
         )
         st.plotly_chart(fig2, use_container_width=True)
     
     # Data table
-    st.markdown("---")
-    st.subheader("🔍 Processed Data")
-    
-    def highlight_row(row):
-        """Apply row coloring based on item type."""
-        color = '#FFF0F5' if row['ITEM_TYPE'] == '2D' else '#F0F4FF'
-        return [f'background-color: {color}'] * len(row)
+    st.divider()
+    st.subheader("Processed Data")
     
     display_cols = [col for col in df_filtered.columns if col in 
                    ['ITEM_TYPE', 'H', 'L', 'P', 'Diameter', 'D', 'ITEM_COUNT', 'CONVERSION_LOG']]
     
-    st.dataframe(
-        df_filtered[display_cols].style.apply(highlight_row, axis=1),
-        height=400,
-        use_container_width=True
-    )
+    st.dataframe(df_filtered[display_cols], height=400, use_container_width=True)
     
-    # Download section
-    st.markdown("---")
-    st.subheader("💾 Download Results")
+    # Download
+    st.divider()
+    st.subheader("Download")
     
     col1, col2 = st.columns(2)
     
@@ -460,64 +272,29 @@ if uploaded_file:
         output.seek(0)
         
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        filename = f"processed_auction_{timestamp}.xlsx"
         
         st.download_button(
-            label="📥 Download Excel",
+            label="Download Excel",
             data=output,
-            file_name=filename,
+            file_name=f"processed_{timestamp}.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
     
     with col2:
         csv_output = df_filtered.to_csv(index=False).encode('utf-8')
         st.download_button(
-            label="📥 Download CSV",
+            label="Download CSV",
             data=csv_output,
-            file_name=f"processed_auction_{timestamp}.csv",
+            file_name=f"processed_{timestamp}.csv",
             mime="text/csv"
         )
 
 else:
-    # Beautiful empty state
-    st.markdown("""
-    <div style="text-align: center; padding: 60px 20px;">
-        <div style="font-size: 80px; margin-bottom: 20px;">📤</div>
-        <h2 style="color: #667eea; margin-bottom: 10px;">Ready to Process Your Auction Data</h2>
-        <p style="color: #666; font-size: 1.1rem; margin-bottom: 30px;">
-            Upload an Excel file to begin the transformation
-        </p>
-    </div>
-    """, unsafe_allow_html=True)
+    st.info("Upload an Excel file to begin")
     
-    col1, col2, col3 = st.columns([1, 2, 1])
-    with col2:
-        st.markdown("""
-        <div style="background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1)); 
-                    padding: 30px; border-radius: 15px; border: 2px dashed #667eea;">
-            <h3 style="color: #667eea; margin-bottom: 20px;">📋 How it works:</h3>
-            <ol style="color: #666; line-height: 2; font-size: 1rem;">
-                <li><b>Upload</b> your auction Excel file</li>
-                <li><b>Extract</b> dimensions automatically (H, L, P, Ø)</li>
-                <li><b>Classify</b> items as 2D or 3D</li>
-                <li><b>Apply</b> shipping rules for logistics</li>
-                <li><b>Download</b> processed results</li>
-            </ol>
-        </div>
-        """, unsafe_allow_html=True)
-
-# Footer
-st.markdown("---")
-st.markdown(
-    """
-    <div style='text-align:center; padding: 30px 0;'>
-        <p style='color: #667eea; font-size: 1.1rem; margin-bottom: 10px;'>
-            Built with precision and passion
-        </p>
-        <p style='color: #999; font-size: 0.9rem;'>
-            © 2025 Henrietta Atsenokhai. All rights reserved.
-        </p>
-    </div>
-    """,
-    unsafe_allow_html=True
-)
+    st.markdown("**Features:**")
+    st.markdown("- Extract H, L, P, and Ø dimensions")
+    st.markdown("- Classify items as 2D or 3D")
+    st.markdown("- Detect multiples (pairs, sets)")
+    st.markdown("- Apply shipping conversion rules")
+    st.markdown("- Export processed data")

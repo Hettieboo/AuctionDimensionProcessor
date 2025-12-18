@@ -150,12 +150,50 @@ st.markdown("""
     h2, h3 {
         color: #34495e;
     }
+    .demo-banner {
+        background-color: #f4b942;
+        color: #000000;
+        padding: 12px;
+        text-align: center;
+        font-weight: 500;
+        font-size: 14px;
+        margin-bottom: 0;
+    }
+    .header-frame {
+        background: linear-gradient(135deg, #4a90e2 0%, #357abd 100%);
+        padding: 40px 20px;
+        border-radius: 8px;
+        text-align: center;
+        margin: 20px 0;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+    .header-frame h1 {
+        color: #ffffff;
+        margin: 0;
+        font-size: 2.5rem;
+    }
+    .header-frame p {
+        color: #e3f2fd;
+        margin: 10px 0 0 0;
+        font-size: 1.1rem;
+    }
 </style>
 """, unsafe_allow_html=True)
 
-st.title("📦 Auction Dimension Processor")
-st.markdown("Process and analyze auction lot data")
-st.divider()
+# Top demo banner
+st.markdown("""
+<div class="demo-banner">
+    ⚠️ DEMO VERSION - For demonstration purposes only
+</div>
+""", unsafe_allow_html=True)
+
+# Header with frame
+st.markdown("""
+<div class="header-frame">
+    <h1>📦 Auction Dimension Processor</h1>
+    <p>Process and analyze auction lot data with precision</p>
+</div>
+""", unsafe_allow_html=True)
 
 # Sidebar
 with st.sidebar:
@@ -298,3 +336,10 @@ else:
     st.markdown("- Detect multiples (pairs, sets)")
     st.markdown("- Apply shipping conversion rules")
     st.markdown("- Export processed data")
+
+# Bottom demo banner
+st.markdown("""
+<div class="demo-banner" style="margin-top: 40px;">
+    ⚠️ DEMO VERSION - For demonstration purposes only
+</div>
+""", unsafe_allow_html=True)
